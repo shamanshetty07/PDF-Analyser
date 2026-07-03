@@ -4,10 +4,23 @@ const app=express();
 const jwt=require("jsonwebtoken")
 const bcrypt=require("bcrypt")
 const multer=require("multer");
+const {PDFParse}= require("pdf-parse")
+require('dotenv').config()
+const {GoogleGenAI}=require("@google/genai")
+const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY})
+const cloudinary=require("cloudinary").v2
+cloudinary.config({
 
+    cloud_name: process.env.CLOUD_NAME,
+
+    api_key: process.env.API_KEY,
+
+    api_secret: process.env.API_SECRET
+
+});
 const storage = multer.diskStorage({
     destination:(req,file,cb)=>{
-        console.log(` this is the request object: ${req.file}`);
+        
         cb(null,"uploads/")
     },
     filename:(req,file,cb)=>{
@@ -75,7 +88,20 @@ app.post("/signin",async(req,res)=>{
     }
 })
 
-app.post("/upload",upload.single("pdf"),(req,res)=>{
-     console.log(req.file);
-    res.send("Uploaded");
+app.post("/upload",upload.single("pdf"),async (req,res)=>{
+//   const result=await   cloudinary.uploader.upload(req.file.path,{
+//         resource_type:"raw"      
+//      })
+    console.log(req.file.path);             //change the setting in the cloudinary for public voew
+    const response=new PDFParse({url:req.file.path})
+     const text=await response.getText()
+     const geminiairesponse= await ai.models.generateContent({
+        model:"gemini-2.5-flash",
+        contents:` ${text.text}`
+     })
+   console.log(geminiairesponse.text)
+     res.json({
+    message: geminiairesponse.text
+});
+
 })
