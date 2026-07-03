@@ -3,6 +3,18 @@ const  {Pool}=require('pg')
 const app=express();
 const jwt=require("jsonwebtoken")
 const bcrypt=require("bcrypt")
+const multer=require("multer");
+
+const storage = multer.diskStorage({
+    destination:(req,file,cb)=>{
+        console.log(` this is the request object: ${req.file}`);
+        cb(null,"uploads/")
+    },
+    filename:(req,file,cb)=>{
+        cb(null,file.originalname);
+    }
+})
+const upload = multer({ storage });
 app.use(express.json())
 const pool= new Pool({
     connectionString:""
@@ -61,4 +73,9 @@ app.post("/signin",async(req,res)=>{
             message:"user does not exist"
         })
     }
+})
+
+app.post("/upload",upload.single("pdf"),(req,res)=>{
+     console.log(req.file);
+    res.send("Uploaded");
 })
