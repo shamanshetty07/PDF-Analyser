@@ -2,6 +2,7 @@ const express=require("express");
 const  {Pool}=require('pg')
 const app=express();
 const jwt=require("jsonwebtoken")
+const fs = require("fs/promises");
 const bcrypt=require("bcrypt")
 const multer=require("multer");
 const {PDFParse}= require("pdf-parse")
@@ -88,20 +89,27 @@ app.post("/signin",async(req,res)=>{
     }
 })
 
-app.post("/upload",upload.single("pdf"),async (req,res)=>{
-//   const result=await   cloudinary.uploader.upload(req.file.path,{
-//         resource_type:"raw"      
-//      })
-    console.log(req.file.path);             //change the setting in the cloudinary for public voew
-    const response=new PDFParse({url:req.file.path})
-     const text=await response.getText()
-     const geminiairesponse= await ai.models.generateContent({
-        model:"gemini-2.5-flash",
-        contents:` ${text.text}`
-     })
-   console.log(geminiairesponse.text)
-     res.json({
-    message: geminiairesponse.text
-});
+app.post("/upload", upload.single("pdf"), async (req, res) => {
+  let parser;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded (expected field name 'pdf')" });
+    }
 
-})
+    const buffer = await fs.readFile(req.file.path);
+    parser = new PDFParse({ data: buffer });
+    const text = await parser.getText();
+
+    const geminiResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: text.text,
+    });
+
+    res.json({ message: geminiResponse.text });
+  } catch (err) {
+    console.error("upload route failed:", err);
+    res.status(500).json({ message: "Failed to process PDF", error: err.message });
+  } finally {
+    if (parser) await parser.destroy();
+  }
+});
